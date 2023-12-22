@@ -1,0 +1,108 @@
+clc; clear; close all;
+%% load ecg
+load('ecg.mat') % carga la señal de ECG desde un archivo llamado ecg.mat
+
+Fs = 250; % frecuencia de muestreo de la señal en Hz
+G = 2000;%normaliza la señal
+
+ecg = ecg/G; % normaliza la señal dividiéndola por G
+ecg = (ecg - mean(ecg))/std(ecg); % normaliza aún más la señal (media cero, desviación estándar 1)
+t = (1:1:length(ecg))*(1/Fs); % crea un vector de tiempo para la señal en segundos se usa el periodo de muestreo
+
+figure; % crea una nueva figura para la representación del ECG en el dominio del tiempo
+plot(t,ecg) % grafica la señal de ECG en el dominio del tiempo
+xlim([0 4]) % muestra solo los primeros 4 segundos de la señal
+xlabel('Tiempo (s)') % etiqueta del eje x
+ylabel('Amplitud (mV)') % etiqueta del eje y
+title('ECG Dominio del Tiempo') % título del gráfico
+
+%% FFT (Transformada rapida de Fourier)
+
+F = fft(ecg); % calcula la Transformada de Fourier de la señal
+F = abs(F); % toma el valor absoluto de la transformada
+F = F(1:ceil(end/2)); % considera solo la mitad positiva de la transformada (simetría)
+F = F/max(F); % normaliza la magnitud de la FFT
+
+L = length(F); % longitud de la FFT
+
+f = (1:1:L)*((Fs/2)/L); % vector de frecuencia correspondiente a la FFT
+
+figure; % crea una nueva figura para la representación en el dominio de la frecuencia
+plot(f,F) % grafica la señal en el dominio de la frecuencia
+xlabel('Frecuencia (Hz)'); % etiqueta del eje x
+ylabel('Magnitud Normalizada'); % etiqueta del eje y
+title('ECG en Frecuencia'); % título del gráfico
+
+%% Filtrado FIR
+
+orden = 200; % orden del filtro FIR
+limi = 59; % límite inferior de la banda de rechazo del filtro
+lims = 61; % límite superior de la banda de rechazo del filtro
+
+limi_n = limi/(Fs/2); % normaliza el límite inferior de la banda de rechazo
+lims_n = lims/(Fs/2); % normaliza el límite superior de la banda de rechazo
+
+a = 1; % coeficientes de la parte denominador de la función de transferencia del filtro (en este caso, simplemente 1)
+b = fir1(orden,[limi_n lims_n],'stop'); % diseño del filtro FIR mediante la función fir1
+
+ecg_limpio = filtfilt(b,a,ecg); % aplica el filtro a la señal de ECG
+
+%genera graficos
+
+figure;
+subplot(2,2,1);
+plot(t,ecg);
+xlim([0 4])
+xlabel('Tiempo (s)')
+ylabel('Amplitud (mV)')
+title('ECG SIN filtro')
+
+subplot(2,2,3);
+plot(t,ecg_limpio);
+xlim([0 4])
+xlabel('Tiempo (s)')
+ylabel('Amplitud (mV)')
+title('ECG CON filtro FIR')
+
+F = fft(ecg);
+F = abs(F);
+F = F(1:ceil(end/2));
+F = F/max(F);
+
+subplot(2,2,2);
+plot(f,F)
+xlabel('Frecuencia (Hz)');
+ylabel('Magnitud Normalizada');
+title('ECG en Frecuencia SIN filtro');
+
+F = fft(ecg_limpio);
+F = abs(F);
+F = F(1:ceil(end/2));
+F = F/max(F);
+
+subplot(2,2,4);
+plot(f,F)
+xlabel('Frecuencia (Hz)');
+ylabel('Magnitud Normalizada CON filtro FIR');
+title('ECG en Frecuencia');
+
+%% Aplicar filtro de Filter Designer
+
+Fs = 250;  % Frecuencia de muestreo
+
+N   = 10;    % Orden del filtro
+Fc1 = 59.7;  % Primera frecuencia de corte
+Fc2 = 60.3;  % Segunda frecuencia de corte
+
+h  = fdesign.bandstop('N,F3dB1,F3dB2', N, Fc1, Fc2, Fs); % diseño del filtro con parámetros
+Hd = design(h, 'butter'); % creación del filtro Butterworth
+
+ecg_limpia2 = filter(Hd,ecg); % aplicación del filtro diseñado al ECG
+
+% Graficar la señal filtrada
+figure;
+plot(t,ecg_limpia2);
+xlim([0 4])
+title('ECG Filtrado con Filter Designer')
+xlabel('Tiempo (s)')
+ylabel('Amplitud (mV)')
